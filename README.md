@@ -18,7 +18,8 @@
 
 A command-line tool that converts **ISO**, **CCI**, **GOD** and **ZIP** inputs to **ISO** or **CCI** using [XboxToolkit](https://github.com/Team-Resurgent/XboxToolkit).
 ## What it does
-- Scans an **input directory** for files ending in `.zip`, `.iso`, or `.cci`, and for **GOD** (Games on Demand) containers in it or any subfolder.
+- Converts a **single file**, or a whole **input folder** in one batch.
+- In a folder, it picks up files ending in `.zip`, `.iso`, or `.cci`, and **GOD** (Games on Demand) containers in the folder or any subfolder.
 - For each input:
   - **ZIP**: extracts the first **`.iso`** entry from the archive into a temp folder.
   - **ISO / CCI / GOD**: converts to **CCI** or **ISO**.
@@ -30,14 +31,15 @@ The Xbox hard drive (FATX) can't hold files of 4GB or more, so output is **split
 - Output smaller than that is written as a single `name.cci` / `name.iso`.
 - Pass `-n` / `--nosplit` to always write a single file, e.g. when the output won't go on a FATX drive.
 
-Split images can also be used as **input**: put all the parts in the input folder and the set is converted once, from part 1, to a file named without the part number. With `-d`, every part is deleted, and for a GOD container the header file and its `.data` folder are deleted.
+Split images can also be used as **input**: put all the parts in the input folder (or pass any one part as a single file) and the set is converted once, from part 1, to a file named without the part number. With `-d`, every part is deleted, and for a GOD container the header file and its `.data` folder are deleted.
 ## Requirements
-- **Input** and **output** must be **existing directories** and must **not** be the same path.
+- **Input** must be an existing file or folder, and **output** an existing folder.
+- **Output** must **not** be the input folder, or the folder that holds the input file.
 - Uses **SharpCompress** for ZIP handling and **XboxToolkit** for container read/write.
 ## Command-line options
 | Option | Description |
 |--------|-------------|
-| `-i`, `--input=` | Source **folder** containing `.zip` / `.iso` / `.cci` files or GOD containers |
+| `-i`, `--input=` | A **folder** of `.zip` / `.iso` / `.cci` files and GOD containers, or a **single file** (for GOD, the header file next to its `.data` folder) |
 | `-o`, `--output=` | Destination **folder** for converted files |
 | `-f`, `--format=` | Output format: **`ISO`** or **`CCI`** (default: **`CCI`**) |
 | `-d`, `--delete` | Delete the original file after a successful conversion |
@@ -49,6 +51,8 @@ Split images can also be used as **input**: put all the parts in the input folde
 xbox360convert -i C:\path\to\input -o C:\path\to\output
 # Same, explicit format
 xbox360convert -i C:\path\to\input -o C:\path\to\output -f CCI
+# Convert a single file
+xbox360convert -i C:\path\to\input\game.iso -o C:\path\to\output
 # Produce ISO instead
 xbox360convert -i C:\path\to\input -o C:\path\to\output -f ISO
 # Don't split output larger than 4GB

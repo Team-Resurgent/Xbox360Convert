@@ -94,10 +94,35 @@ internal class Program
         return discsInSet > 1 ? $"{name} (Disc {discNumber})" : name;
     }
 
+    public static bool IsImageFile(string path)
+    {
+        return path.EndsWith(".zip", StringComparison.CurrentCultureIgnoreCase) || path.EndsWith(".iso", StringComparison.CurrentCultureIgnoreCase) || path.EndsWith(".cci", StringComparison.CurrentCultureIgnoreCase);
+    }
+
+    public static string[] GetInputFiles()
+    {
+        if (Directory.Exists(input))
+        {
+            // The container readers open every part of a split set from part 1, so skip the other parts.
+            return Directory.GetFiles(input).Where(IsImageFile).Where(s => GetSplitPart(s) <= 1).Concat(GetGODHeaders(input)).ToArray();
+        }
+
+        if (GODContainerReader.IsGOD(input))
+        {
+            return new[] { input };
+        }
+        if (IsImageFile(input) == false)
+        {
+            LogLine("Error: Input file should be a ZIP, ISO, CCI or GOD header.");
+            return Array.Empty<string>();
+        }
+        // Any part of a split set converts the whole set from part 1.
+        return new[] { GetSplitPart(input) > 1 ? ContainerUtility.GetSlicesFromFile(input)[0] : input };
+    }
+
     public static void Process()
     {
-        // The container readers open every part of a split set from part 1, so skip the other parts.
-        var inputFiles = Directory.GetFiles(input).Where(s => s.EndsWith(".zip", StringComparison.CurrentCultureIgnoreCase) || s.EndsWith(".iso", StringComparison.CurrentCultureIgnoreCase) || s.EndsWith(".cci", StringComparison.CurrentCultureIgnoreCase)).Where(s => GetSplitPart(s) <= 1).Concat(GetGODHeaders(input)).ToArray();
+        var inputFiles = GetInputFiles();
         var tempFolder = Path.Combine(output, "Temp");
 
         for (int i = 0; i < inputFiles.Length; i++)
@@ -200,7 +225,7 @@ internal class Program
     private static void Main(string[] args)
     {
         var options = new OptionSet {
-            { "i|input=", "the source path of ISO/CCI/ZIP's and GOD containers.", i => input = i },
+            { "i|input=", "a folder of ISO/CCI/ZIP's and GOD containers, or a single file.", i => input = i },
             { "o|output=", "the destination path of ISO/CCI's.", i => output = i },
             { "f|format=", "the destination format (ISO/CCI) default CCI.", f => format = f },
             { "d|delete", "delete original file after successful processing.", v => delete = v != null },
@@ -225,7 +250,7 @@ internal class Program
             }
 
             input = Path.GetFullPath(input);
-            if (Directory.Exists(input) == false)
+            if (Directory.Exists(input) == false && File.Exists(input) == false)
             {
                 throw new OptionException("input path does not exist.", "input");
             }
@@ -241,7 +266,8 @@ internal class Program
                 throw new OptionException("output path does not exist.", "output");
             }
 
-            if (input.Equals(output, StringComparison.CurrentCultureIgnoreCase))
+            var inputFolder = File.Exists(input) ? Path.GetDirectoryName(input) : input;
+            if (string.Equals(inputFolder, output, StringComparison.CurrentCultureIgnoreCase))
             {
                 throw new OptionException("output path should not be same as input.", "output");
             }
