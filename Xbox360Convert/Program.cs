@@ -214,7 +214,7 @@ internal class Program
 
             if (shouldShowHelp || args.Length == 0)
             {
-                Console.WriteLine("Simple360CCI: ");
+                Console.WriteLine("Xbox360Convert: ");
                 options.WriteOptionDescriptions(System.Console.Out);
                 return;
             }
@@ -255,9 +255,9 @@ internal class Program
         }
         catch (OptionException e)
         {
-            Console.Write("Simple360CCI: ");
+            Console.Write("Xbox360Convert: ");
             Console.WriteLine(e.Message);
-            Console.WriteLine("Try `Simple360CCI --help' for more information.");
+            Console.WriteLine("Try `xbox360convert --help' for more information.");
             return;
         }
     }

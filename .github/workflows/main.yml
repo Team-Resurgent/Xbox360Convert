@@ -1,4 +1,4 @@
-name: BuildSimple360CCI
+name: BuildXbox360Convert
 
 on:
   push:
@@ -18,8 +18,8 @@ jobs:
     strategy:
       matrix:
         os_flavor: [win-x64,win-arm64,linux-x64,linux-arm64,osx-x64,osx-arm64]
-        project: [Simple360CCI]
-        project_lowercase: [simple360cci]
+        project: [Xbox360Convert]
+        project_lowercase: [xbox360convert]
         include:
           - os_flavor: win-x64
             runner: ubuntu-latest

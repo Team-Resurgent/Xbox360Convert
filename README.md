@@ -1,9 +1,9 @@
-# Simple360CCI
+# Xbox360Convert
 
 <p align="center"><b>Batch convert Xbox and Xbox 360 ISO, CCI and GOD images to ISO or CCI, split for FATX</b></p>
 
 <p align="center">
-  <a href="https://github.com/Team-Resurgent/Simple360CCI/actions/workflows/main.yml"><img src="https://github.com/Team-Resurgent/Simple360CCI/actions/workflows/main.yml/badge.svg" alt="Build"></a>
+  <a href="https://github.com/Team-Resurgent/Xbox360Convert/actions/workflows/main.yml"><img src="https://github.com/Team-Resurgent/Xbox360Convert/actions/workflows/main.yml/badge.svg" alt="Build"></a>
   <a href="https://discord.gg/VcdSfajQGK"><img src="https://img.shields.io/badge/chat-on%20discord-7289da.svg?logo=discord" alt="Discord"></a>
 </p>
 
@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Team-Resurgent/Simple360CCI/releases/latest"><img src="https://img.shields.io/badge/download-latest-brightgreen.svg?style=for-the-badge&logo=github" alt="Download"></a>
+  <a href="https://github.com/Team-Resurgent/Xbox360Convert/releases/latest"><img src="https://img.shields.io/badge/download-latest-brightgreen.svg?style=for-the-badge&logo=github" alt="Download"></a>
 </p>
 
 A command-line tool that converts **ISO**, **CCI**, **GOD** and **ZIP** inputs to **ISO** or **CCI** using [XboxToolkit](https://github.com/Team-Resurgent/XboxToolkit).
@@ -46,13 +46,13 @@ Split images can also be used as **input**: put all the parts in the input folde
 ## Usage examples
 ```bash
 # Convert all supported files in .\in to CCI in .\out (default format)
-Simple360CCI -i C:\path\to\input -o C:\path\to\output
+xbox360convert -i C:\path\to\input -o C:\path\to\output
 # Same, explicit format
-Simple360CCI -i C:\path\to\input -o C:\path\to\output -f CCI
+xbox360convert -i C:\path\to\input -o C:\path\to\output -f CCI
 # Produce ISO instead
-Simple360CCI -i C:\path\to\input -o C:\path\to\output -f ISO
+xbox360convert -i C:\path\to\input -o C:\path\to\output -f ISO
 # Don't split output larger than 4GB
-Simple360CCI -i C:\path\to\input -o C:\path\to\output -n
+xbox360convert -i C:\path\to\input -o C:\path\to\output -n
 # Delete originals after success
-Simple360CCI -i C:\path\to\input -o C:\path\to\output -d
+xbox360convert -i C:\path\to\input -o C:\path\to\output -d
 ```
