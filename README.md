@@ -32,6 +32,13 @@ The Xbox hard drive (FATX) can't hold files of 4GB or more, so output is **split
 - Pass `-n` / `--nosplit` to always write a single file, e.g. when the output won't go on a FATX drive.
 
 Split images can also be used as **input**: put all the parts in the input folder (or pass any one part as a single file) and the set is converted once, from part 1, to a file named without the part number. With `-d`, every part is deleted, and for a GOD container the header file and its `.data` folder are deleted.
+## Converting XEX files
+`-m` / `--machine` re-signs every XEX on an Xbox 360 disc for a **DEVKIT** or **RETAIL** console, and `-u` / `--unrestrict` removes their media, region and other limits. Both use [XexTool](https://github.com/Team-Resurgent/XexTool), which is downloaded for your OS the first time it's needed (or put `XexTool` next to `xbox360convert` or on your PATH).
+- XEX files inside **STFS packages** on the disc (such as Arcade titles) are converted too, and the package is rebuilt around them.
+- The disc is extracted, converted and built again, since converted files can change size.
+- The disc's system update and title update are left as they are.
+- A rebuilt package no longer matches its Microsoft signature, so it is written as a console-signed (CON) package with a blank signature. [360Attach](https://github.com/Team-Resurgent/360Attach) signs it with the console's own key when it mounts the disc, so the package opens on a stock devkit as well as on RGH/JTAG.
+- For a retail-kernel console (RGH/JTAG/Peer Pressure), convert without `-m`: it already runs retail-signed discs. `-m DEVKIT` output only runs on a devkit.
 ## Requirements
 - **Input** must be an existing file or folder, and **output** an existing folder.
 - **Output** must **not** be the input folder, or the folder that holds the input file.
@@ -44,6 +51,8 @@ Split images can also be used as **input**: put all the parts in the input folde
 | `-f`, `--format=` | Output format: **`ISO`** or **`CCI`** (default: **`CCI`**) |
 | `-d`, `--delete` | Delete the original file after a successful conversion |
 | `-n`, `--nosplit` | Write a single file instead of splitting at the FATX 4GB limit |
+| `-m`, `--machine=` | Re-sign every XEX, including those in STFS packages, for **`DEVKIT`** or **`RETAIL`** |
+| `-u`, `--unrestrict` | Remove media, region and other limits from every XEX, including those in STFS packages |
 | `-h`, `--help` | Show help |
 ## Usage examples
 ```bash
@@ -57,6 +66,8 @@ xbox360convert -i C:\path\to\input\game.iso -o C:\path\to\output
 xbox360convert -i C:\path\to\input -o C:\path\to\output -f ISO
 # Don't split output larger than 4GB
 xbox360convert -i C:\path\to\input -o C:\path\to\output -n
+# Re-sign for a devkit and remove XEX limits
+xbox360convert -i C:\path\to\input -o C:\path\to\output -m DEVKIT -u
 # Delete originals after success
 xbox360convert -i C:\path\to\input -o C:\path\to\output -d
 ```

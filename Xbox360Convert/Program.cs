@@ -11,9 +11,31 @@ internal class Program
     private static string input = string.Empty;
     private static string output = string.Empty;
     private static string format = "CCI";
+    private static string machine = string.Empty;
+    private static bool unrestrict = false;
+    private static string xexToolPath = string.Empty;
 
     // Just under the FATX 4GB file size limit.
     private const long FatxSplitPoint = 0xFF000000L;
+
+    // XexTool's "-r a" without "z", so title updates still match the media ID.
+    private const string RemoveLimits = "mrbdiyvklc";
+
+    public static string[] GetXexOptions()
+    {
+        var options = new List<string>();
+        if (machine.Length > 0)
+        {
+            options.Add("-m");
+            options.Add(machine.Equals("DEVKIT", StringComparison.OrdinalIgnoreCase) ? "d" : "r");
+        }
+        if (unrestrict)
+        {
+            options.Add("-r");
+            options.Add(RemoveLimits);
+        }
+        return options.ToArray();
+    }
 
     public static void LogLine(string line)
     {
@@ -94,6 +116,11 @@ internal class Program
         return discsInSet > 1 ? $"{name} (Disc {discNumber})" : name;
     }
 
+    public static bool IsXbox360(ContainerReader container)
+    {
+        return container.TryGetDefault(out _, out var containerType) && containerType == ContainerType.Xbox360;
+    }
+
     public static bool IsImageFile(string path)
     {
         return path.EndsWith(".zip", StringComparison.CurrentCultureIgnoreCase) || path.EndsWith(".iso", StringComparison.CurrentCultureIgnoreCase) || path.EndsWith(".cci", StringComparison.CurrentCultureIgnoreCase);
@@ -168,22 +195,54 @@ internal class Program
 
                 using (ContainerReader isoContainer = isGod ? new GODContainerReader(processFile) : processExtension.Equals(".iso", StringComparison.CurrentCultureIgnoreCase) ? new ISOContainerReader(processFile) : new CCIContainerReader(processFile))
                 {
-                    LogLine("Converting...");
                     if (isoContainer.TryMount() == false)
                     {
                         isoContainer.Dispose();
                         LogLine("Error: Failed to mount.");
                         continue;
                     }
-                    if (string.Equals(extension, ".cci") && ContainerUtility.ConvertContainerToCCI(isoContainer, ProcessingOptions.All, containerPath, splitPoint, null) == false)
+                    var xexOptions = GetXexOptions();
+                    if (xexOptions.Length > 0 && IsXbox360(isoContainer))
                     {
-                        LogLine("Error: Failed creating cci.");
-                        continue;
+                        // Converted files can change size, so the disc is extracted, converted and built again.
+                        LogLine("Extracting...");
+                        var extractFolder = Path.Combine(tempFolder, "Extract");
+                        if (isoContainer.TryExtractFiles(extractFolder) == false)
+                        {
+                            LogLine("Error: Failed extracting files.");
+                            continue;
+                        }
+                        LogLine("Converting XEX files...");
+                        XexConverter.ConvertFolder(extractFolder, xexToolPath, xexOptions, Path.Combine(tempFolder, "Xex"));
+                        LogLine("Rebuilding...");
+                        if (string.Equals(extension, ".cci") && ContainerUtility.ConvertFolderToCCI(extractFolder, ISOFormat.Xbox360, containerPath, splitPoint, null) == false)
+                        {
+                            LogLine("Error: Failed creating cci.");
+                            continue;
+                        }
+                        if (string.Equals(extension, ".iso") && ContainerUtility.ConvertFolderToISO(extractFolder, ISOFormat.Xbox360, containerPath, splitPoint, null) == false)
+                        {
+                            LogLine("Error: Failed creating iso.");
+                            continue;
+                        }
                     }
-                    if (string.Equals(extension, ".iso") && ContainerUtility.ConvertContainerToISO(isoContainer, ProcessingOptions.All, containerPath, splitPoint, null) == false)
+                    else
                     {
-                        LogLine("Error: Failed creating iso.");
-                        continue;
+                        if (xexOptions.Length > 0)
+                        {
+                            LogLine("Warning: not an Xbox 360 disc, XEX options ignored.");
+                        }
+                        LogLine("Converting...");
+                        if (string.Equals(extension, ".cci") && ContainerUtility.ConvertContainerToCCI(isoContainer, ProcessingOptions.All, containerPath, splitPoint, null) == false)
+                        {
+                            LogLine("Error: Failed creating cci.");
+                            continue;
+                        }
+                        if (string.Equals(extension, ".iso") && ContainerUtility.ConvertContainerToISO(isoContainer, ProcessingOptions.All, containerPath, splitPoint, null) == false)
+                        {
+                            LogLine("Error: Failed creating iso.");
+                            continue;
+                        }
                     }
                 }
 
@@ -230,6 +289,8 @@ internal class Program
             { "f|format=", "the destination format (ISO/CCI) default CCI.", f => format = f },
             { "d|delete", "delete original file after successful processing.", v => delete = v != null },
             { "n|nosplit", "do not split output at the FATX 4GB file size limit.", v => noSplit = v != null },
+            { "m|machine=", "re-sign every XEX, including those in STFS packages, for DEVKIT or RETAIL.", m => machine = m },
+            { "u|unrestrict", "remove media, region and other limits from every XEX, including those in STFS packages.", v => unrestrict = v != null },
             { "h|help", "show this message and exit", h => shouldShowHelp = h != null },
         };
 
@@ -275,6 +336,23 @@ internal class Program
             if ((format.Equals("ISO", StringComparison.CurrentCultureIgnoreCase) || format.Equals("CCI", StringComparison.CurrentCultureIgnoreCase)) == false)
             {
                 throw new OptionException("format should be ISO or CCI.", "format");
+            }
+
+            if (machine.Length > 0 && (machine.Equals("DEVKIT", StringComparison.OrdinalIgnoreCase) || machine.Equals("RETAIL", StringComparison.OrdinalIgnoreCase)) == false)
+            {
+                throw new OptionException("machine should be DEVKIT or RETAIL.", "machine");
+            }
+
+            if (machine.Length > 0 || unrestrict)
+            {
+                try
+                {
+                    xexToolPath = XexTool.Find() ?? XexTool.Download();
+                }
+                catch (Exception ex)
+                {
+                    throw new OptionException($"XexTool was not found and could not be downloaded: {ex.Message}", "machine");
+                }
             }
 
             Process();
