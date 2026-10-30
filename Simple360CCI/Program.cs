@@ -56,10 +56,48 @@ internal class Program
         return File.Exists(basePath + ".1" + extension) && File.Exists(basePath + ".2" + extension) ? subExtension[1] - '0' : 0;
     }
 
+    // A GOD container is a header file named by hash next to a hash.data folder, usually under TitleID\00007000\.
+    public static string[] GetGODHeaders(string folder)
+    {
+        return Directory.GetDirectories(folder, "*.data", SearchOption.AllDirectories).Select(s => s[..^".data".Length]).Where(GODContainerReader.IsGOD).ToArray();
+    }
+
+    // Names GOD output after the title name in its header, adding the disc number for multi-disc titles.
+    public static string GetGODName(string headerPath)
+    {
+        var buffer = new byte[0x80];
+        string name;
+        byte discNumber, discsInSet;
+        using (var stream = File.OpenRead(headerPath))
+        {
+            stream.Position = 0x360;
+            var titleId = new byte[4];
+            stream.ReadExactly(titleId);
+            stream.Position = 0x366;
+            discNumber = (byte)stream.ReadByte();
+            discsInSet = (byte)stream.ReadByte();
+            stream.Position = 0x411;
+            stream.ReadExactly(buffer);
+            name = System.Text.Encoding.BigEndianUnicode.GetString(buffer).TrimEnd('\0').Trim();
+            if (name.Length == 0)
+            {
+                name = Convert.ToHexString(titleId);
+            }
+        }
+
+        foreach (var c in "\\/:*?\"<>|")
+        {
+            name = name.Replace(c, '_');
+        }
+        // FATX file names are ASCII only.
+        name = new string(name.Where(c => c < 0x80 && char.IsControl(c) == false).ToArray()).Trim();
+        return discsInSet > 1 ? $"{name} (Disc {discNumber})" : name;
+    }
+
     public static void Process()
     {
         // The container readers open every part of a split set from part 1, so skip the other parts.
-        var inputFiles = Directory.GetFiles(input).Where(s => s.EndsWith(".zip", StringComparison.CurrentCultureIgnoreCase) || s.EndsWith(".iso", StringComparison.CurrentCultureIgnoreCase) || s.EndsWith(".cci", StringComparison.CurrentCultureIgnoreCase)).Where(s => GetSplitPart(s) <= 1).ToArray();
+        var inputFiles = Directory.GetFiles(input).Where(s => s.EndsWith(".zip", StringComparison.CurrentCultureIgnoreCase) || s.EndsWith(".iso", StringComparison.CurrentCultureIgnoreCase) || s.EndsWith(".cci", StringComparison.CurrentCultureIgnoreCase)).Where(s => GetSplitPart(s) <= 1).Concat(GetGODHeaders(input)).ToArray();
         var tempFolder = Path.Combine(output, "Temp");
 
         for (int i = 0; i < inputFiles.Length; i++)
@@ -75,8 +113,9 @@ internal class Program
 
                 var originalFile = inputFiles[i];
                 var processFile = originalFile;
-                var isSplit = GetSplitPart(originalFile) == 1;
-                var baseName = Path.GetFileNameWithoutExtension(originalFile);
+                var isGod = GODContainerReader.IsGOD(originalFile);
+                var isSplit = isGod == false && GetSplitPart(originalFile) == 1;
+                var baseName = isGod ? GetGODName(originalFile) : Path.GetFileNameWithoutExtension(originalFile);
                 if (isSplit)
                 {
                     baseName = Path.GetFileNameWithoutExtension(baseName);
@@ -92,16 +131,17 @@ internal class Program
                         LogLine("Error: Failed extracting archive.");
                         continue;
                     }
+                    baseName = Path.GetFileNameWithoutExtension(processFile);
                 }
 
                 var extension = format == "CCI" ? ".cci" : ".iso";
                 var convertFolder = Path.Combine(tempFolder, "Convert");
                 Directory.CreateDirectory(convertFolder);
-                var containerPath = Path.Combine(convertFolder, (isSplit ? baseName : Path.GetFileNameWithoutExtension(processFile)) + extension);
+                var containerPath = Path.Combine(convertFolder, baseName + extension);
                 var processExtension = Path.GetExtension(processFile);
                 var splitPoint = noSplit ? 0L : FatxSplitPoint;
 
-                using (ContainerReader isoContainer = (processExtension.Equals(".iso", StringComparison.CurrentCultureIgnoreCase) ? new ISOContainerReader(processFile) : new CCIContainerReader(processFile)))
+                using (ContainerReader isoContainer = isGod ? new GODContainerReader(processFile) : processExtension.Equals(".iso", StringComparison.CurrentCultureIgnoreCase) ? new ISOContainerReader(processFile) : new CCIContainerReader(processFile))
                 {
                     LogLine("Converting...");
                     if (isoContainer.TryMount() == false)
@@ -128,7 +168,13 @@ internal class Program
                     File.Move(convertedFile, Path.Combine(output, Path.GetFileName(convertedFile)), true);
                 }
 
-                if (delete == true)
+                if (delete == true && isGod)
+                {
+                    LogLine($"Deleting '{Path.GetFileName(originalFile)}' and its data folder.");
+                    File.Delete(originalFile);
+                    Directory.Delete(originalFile + ".data", true);
+                }
+                else if (delete == true)
                 {
                     foreach (var deleteFile in isSplit ? ContainerUtility.GetSlicesFromFile(originalFile) : new[] { originalFile })
                     {
@@ -154,7 +200,7 @@ internal class Program
     private static void Main(string[] args)
     {
         var options = new OptionSet {
-            { "i|input=", "the source path of ISO/CCI/ZIP's.", i => input = i },
+            { "i|input=", "the source path of ISO/CCI/ZIP's and GOD containers.", i => input = i },
             { "o|output=", "the destination path of ISO/CCI's.", i => output = i },
             { "f|format=", "the destination format (ISO/CCI) default CCI.", f => format = f },
             { "d|delete", "delete original file after successful processing.", v => delete = v != null },

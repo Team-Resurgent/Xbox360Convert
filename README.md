@@ -1,6 +1,6 @@
 # Simple360CCI
 
-<p align="center"><b>Batch convert Xbox and Xbox 360 game images between ISO and CCI, split for FATX</b></p>
+<p align="center"><b>Batch convert Xbox and Xbox 360 ISO, CCI and GOD images to ISO or CCI, split for FATX</b></p>
 
 <p align="center">
   <a href="https://github.com/Team-Resurgent/Simple360CCI/actions/workflows/main.yml"><img src="https://github.com/Team-Resurgent/Simple360CCI/actions/workflows/main.yml/badge.svg" alt="Build"></a>
@@ -16,14 +16,13 @@
   <a href="https://github.com/Team-Resurgent/Simple360CCI/releases/latest"><img src="https://img.shields.io/badge/download-latest-brightgreen.svg?style=for-the-badge&logo=github" alt="Download"></a>
 </p>
 
-A command-line tool that converts between **ISO** and **CCI** (and can unpack **ZIP** inputs) using [XboxToolkit](https://github.com/Team-Resurgent/XboxToolkit).
+A command-line tool that converts **ISO**, **CCI**, **GOD** and **ZIP** inputs to **ISO** or **CCI** using [XboxToolkit](https://github.com/Team-Resurgent/XboxToolkit).
 ## What it does
-- Scans an **input directory** for files ending in `.zip`, `.iso`, or `.cci`.
-- For each file:
+- Scans an **input directory** for files ending in `.zip`, `.iso`, or `.cci`, and for **GOD** (Games on Demand) containers in it or any subfolder.
+- For each input:
   - **ZIP**: extracts the first **`.iso`** entry from the archive into a temp folder.
-  - **ISO / CCI**: opens via `ISOContainerReader` or `CCIContainerReader`, mounts with `TryMount()`, then converts with:
-    - `ContainerUtility.ConvertContainerToCCI(...)` when output format is **CCI**, or  
-    - `ContainerUtility.ConvertContainerToISO(...)` when output format is **ISO**.
+  - **ISO / CCI / GOD**: converts to **CCI** or **ISO**.
+  - **GOD** output is named after the title in the GOD header, with ` (Disc N)` added for multi-disc titles.
 - Writes the result to the **output directory** (optionally deletes the source file after success).
 ## Splitting
 The Xbox hard drive (FATX) can't hold files of 4GB or more, so output is **split by default**:
@@ -31,14 +30,14 @@ The Xbox hard drive (FATX) can't hold files of 4GB or more, so output is **split
 - Output smaller than that is written as a single `name.cci` / `name.iso`.
 - Pass `-n` / `--nosplit` to always write a single file, e.g. when the output won't go on a FATX drive.
 
-Split images can also be used as **input**: put all the parts in the input folder and the set is converted once, from part 1, to a file named without the part number. With `-d`, every part is deleted.
+Split images can also be used as **input**: put all the parts in the input folder and the set is converted once, from part 1, to a file named without the part number. With `-d`, every part is deleted, and for a GOD container the header file and its `.data` folder are deleted.
 ## Requirements
 - **Input** and **output** must be **existing directories** and must **not** be the same path.
 - Uses **SharpCompress** for ZIP handling and **XboxToolkit** for container read/write.
 ## Command-line options
 | Option | Description |
 |--------|-------------|
-| `-i`, `--input=` | Source **folder** containing `.zip` / `.iso` / `.cci` files |
+| `-i`, `--input=` | Source **folder** containing `.zip` / `.iso` / `.cci` files or GOD containers |
 | `-o`, `--output=` | Destination **folder** for converted files |
 | `-f`, `--format=` | Output format: **`ISO`** or **`CCI`** (default: **`CCI`**) |
 | `-d`, `--delete` | Delete the original file after a successful conversion |
