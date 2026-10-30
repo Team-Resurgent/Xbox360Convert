@@ -16,8 +16,7 @@
   <a href="https://github.com/Team-Resurgent/Simple360CCI/releases/latest"><img src="https://img.shields.io/badge/download-latest-brightgreen.svg?style=for-the-badge&logo=github" alt="Download"></a>
 </p>
 
-CLI tool from [Team-Resurgent/Simple360CCI](https://github.com/Team-Resurgent/Simple360CCI) that converts between **ISO** and **CCI** (and can unpack **ZIP** inputs) using **`XboxToolkit`** (`ISOContainerReader`, `CCIContainerReader`, `ContainerUtility`).
-Source: [`Simple360CCI/Program.cs`](https://github.com/Team-Resurgent/Simple360CCI/blob/main/Simple360CCI/Program.cs).
+A command-line tool that converts between **ISO** and **CCI** (and can unpack **ZIP** inputs) using [XboxToolkit](https://github.com/Team-Resurgent/XboxToolkit).
 ## What it does
 - Scans an **input directory** for files ending in `.zip`, `.iso`, or `.cci`.
 - For each file:
@@ -25,8 +24,14 @@ Source: [`Simple360CCI/Program.cs`](https://github.com/Team-Resurgent/Simple360C
   - **ISO / CCI**: opens via `ISOContainerReader` or `CCIContainerReader`, mounts with `TryMount()`, then converts with:
     - `ContainerUtility.ConvertContainerToCCI(...)` when output format is **CCI**, or  
     - `ContainerUtility.ConvertContainerToISO(...)` when output format is **ISO**.
-- By default, splits output that would exceed the **FATX 4GB** file size limit into parts named `name.1.cci`, `name.2.cci`, ... (or `.iso`). Output that fits is written as a single `name.cci`.
 - Writes the result to the **output directory** (optionally deletes the source file after success).
+## Splitting
+The Xbox hard drive (FATX) can't hold files of 4GB or more, so output is **split by default**:
+- Output that would be 4GB or larger is written as numbered parts: `name.1.cci`, `name.2.cci`, ... (or `name.1.iso`, `name.2.iso`, ...). Each part is just under 4GB (`0xFF000000` bytes).
+- Output smaller than that is written as a single `name.cci` / `name.iso`.
+- Pass `-n` / `--nosplit` to always write a single file, e.g. when the output won't go on a FATX drive.
+
+Split images can also be used as **input**: put all the parts in the input folder and the set is converted once, from part 1, to a file named without the part number. With `-d`, every part is deleted.
 ## Requirements
 - **Input** and **output** must be **existing directories** and must **not** be the same path.
 - Uses **SharpCompress** for ZIP handling and **XboxToolkit** for container read/write.
