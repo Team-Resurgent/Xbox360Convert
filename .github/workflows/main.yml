@@ -12,26 +12,42 @@ permissions:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    # macOS builds run on a Mac so the single-file apphost gets code signed (required on Apple Silicon).
+    runs-on: ${{ matrix.runner }}
 
     strategy:
       matrix:
-        arch: [x64]
-        os_flavor: [win-x64,linux-x64,osx-x64]
+        os_flavor: [win-x64,win-arm64,linux-x64,linux-arm64,osx-x64,osx-arm64]
         project: [Simple360CCI]
         project_lowercase: [simple360cci]
         include:
           - os_flavor: win-x64
+            runner: ubuntu-latest
+            archive_ext: zip
+          - os_flavor: win-arm64
+            runner: ubuntu-latest
             archive_ext: zip
           - os_flavor: linux-x64
+            runner: ubuntu-latest
+            archive_ext: tar
+          - os_flavor: linux-arm64
+            runner: ubuntu-latest
             archive_ext: tar
           - os_flavor: osx-x64
+            runner: macos-latest
+            archive_ext: tar
+          - os_flavor: osx-arm64
+            runner: macos-latest
             archive_ext: tar
 
+    env:
+      PUBLISH_DIR: ${{ github.workspace }}/publish/${{ matrix.os_flavor }}
+      ARCHIVE: ${{ github.workspace }}/${{ matrix.project }}-${{ matrix.os_flavor }}.${{ matrix.archive_ext }}
+
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Setup .NET
-      uses: actions/setup-dotnet@v2
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 7.0.x
     - name: Restore dependencies
@@ -39,33 +55,36 @@ jobs:
     - name: Build
       run: dotnet build --no-restore --no-self-contained
     - name: Publish
-      run: dotnet publish ./${{ matrix.project }}/${{ matrix.project }}.csproj -p:Platform=${{ matrix.arch }} -r ${{ matrix.os_flavor }} -c Release --self-contained true -p:DebugType=None -p:DebugSymbols=false
+      run: dotnet publish ./${{ matrix.project }}/${{ matrix.project }}.csproj -r ${{ matrix.os_flavor }} -c Release --self-contained true -p:DebugType=None -p:DebugSymbols=false -o "$PUBLISH_DIR"
     - name: Chmod (Unix)
-      if: ${{ matrix.os_flavor == 'linux-x64' || matrix.os_flavor == 'osx-x64' }}
-      run: chmod +x ${{ github.workspace }}/${{ matrix.project }}/bin/${{ matrix.arch }}/Release/net7.0/${{ matrix.os_flavor }}/publish/${{ matrix.project_lowercase }}
-    - name: Compress binaries
-      run: 7z a ${{ github.workspace }}/${{ matrix.project }}-${{ matrix.os_flavor }}.${{ matrix.archive_ext }} ${{ github.workspace }}/${{ matrix.project }}/bin/${{ matrix.arch }}/Release/net7.0/${{ matrix.os_flavor }}/publish/*
+      if: ${{ !startsWith(matrix.os_flavor, 'win') }}
+      run: chmod +x "$PUBLISH_DIR/${{ matrix.project_lowercase }}"
+    - name: Compress binaries (zip)
+      if: ${{ matrix.archive_ext == 'zip' }}
+      run: cd "$PUBLISH_DIR" && 7z a "$ARCHIVE" ./*
+    - name: Compress binaries (tar)
+      if: ${{ matrix.archive_ext == 'tar' }}
+      run: tar -C "$PUBLISH_DIR" -cf "$ARCHIVE" .
     - name: List directories and files
       run: find .
     - name: Upload Build Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.project }}-${{ matrix.os_flavor }}
-        path: ${{ github.workspace }}/${{ matrix.project }}/bin/${{ matrix.arch }}/Release/net7.0/${{ matrix.os_flavor }}/publish/*
+        path: ${{ env.PUBLISH_DIR }}/*
         if-no-files-found: error
     - name: Create draft Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/heads/main')
       with:
         tag_name: latest
         draft: true
         files: |
-          ${{ github.workspace }}/Repackinator.nfo
           ${{ github.workspace }}/README.md
-          ${{ github.workspace }}/${{ matrix.project }}-${{ matrix.os_flavor }}.${{ matrix.archive_ext }}
+          ${{ env.ARCHIVE }}
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/tags/')
       with:
         files: |
-          ${{ github.workspace }}/${{ matrix.project }}-${{ matrix.os_flavor }}.${{ matrix.archive_ext }}
+          ${{ env.ARCHIVE }}
